@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-sans: "Public Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: #f6faf8;
+    color: #0f2922;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+}
+
+@keyframes gentle-sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2.5deg); }
+}
+
+@keyframes bird-bob {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes chirp-ring {
+  0% { transform: scale(0.6); opacity: 0.75; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+@keyframes sunbeam-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.6; }
+}
+
+.animate-sway {
+  transform-origin: bottom center;
+  animation: gentle-sway 4.5s ease-in-out infinite;
+}
+
+.animate-bird {
+  animation: bird-bob 3.2s ease-in-out infinite;
+}
+
+.animate-chirp {
+  transform-origin: center;
+  animation: chirp-ring 2.6s ease-out infinite;
+}
+
+.animate-sunbeam {
+  animation: sunbeam-pulse 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sway,
+  .animate-bird,
+  .animate-chirp,
+  .animate-sunbeam {
+    animation: none;
+  }
+}
