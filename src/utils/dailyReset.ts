@@ -1,4 +1,4 @@
-import type { CrewState } from '../types.ts';
+import { CrewState } from '../types.ts';
 
 /**
  * Formats a Date into the local system calendar date key (YYYY-MM-DD).

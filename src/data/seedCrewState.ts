@@ -1,9 +1,9 @@
 import {
+  CrewState,
   GardenElement,
   HabitCategory,
+  HabitTask,
   MissionId,
-  type CrewState,
-  type HabitTask,
 } from '../types.ts';
 import { getSystemDateKey } from '../utils/dailyReset.ts';
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Activity, MessageSquareHeart, Watch } from 'lucide-react';
 import { CrewState, HabitCategory, WatchReading } from '../types.ts';
+import { HealthAlerts } from './HealthAlerts.tsx';
 
 interface WatchPageProps {
   crewState: CrewState;
@@ -219,6 +220,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         </div>
       )}
 
+      <HealthAlerts crewState={crewState} />
       {latest && (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
           <div className="p-4 bg-white border border-[#D5E3DD] rounded-xl">

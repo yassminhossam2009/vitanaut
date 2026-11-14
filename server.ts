@@ -1,88 +1,41 @@
 import express from 'express';
-import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import {
+  FunctionDeclaration,
   GoogleGenAI,
   Type,
-  type Content,
-  type FunctionDeclaration,
+  Content,
 } from '@google/genai';
-import { createSeedCrewState, categoryToGardenElement } from './src/data/seedCrewState.ts';
+import { categoryToGardenElement } from './src/data/seedCrewState.ts';
 import {
+  CrewState,
   HabitCategory,
+  HabitTask,
   MissionId,
-  type CrewAccountSummary,
-  type CrewState,
-  type HabitTask,
 } from './src/types.ts';
 import { applyDailyHabitReset, getSystemDateKey } from './src/utils/dailyReset.ts';
+import {
+  initDb,
+  closeDb,
+  findUserByCrewId,
+  composeState,
+  saveState,
+  audit,
+} from './server/db.ts';
+import { router, requireAuth } from './server/routes.ts';
+import { purgeExpiredSessions } from './server/sessions.ts';
 
 dotenv.config();
 
-const PORT = Number(process.env.PORT) || 3000;
-const DATA_DIR = path.resolve(process.cwd(), 'data');
-const STORE_PATH = path.join(DATA_DIR, 'crew_store.json');
+const PORT = Number(process.env.PORT ?? 3000);
 
-interface PersistedAccount {
-  crewId: string;
-  password: string;
-  state: CrewState;
-}
-
-type CrewDatabase = Record<string, PersistedAccount>;
-
-function loadDatabase(): CrewDatabase {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (fs.existsSync(STORE_PATH)) {
-      const raw = fs.readFileSync(STORE_PATH, 'utf-8');
-      return JSON.parse(raw) as CrewDatabase;
-    }
-  } catch (err) {
-    console.error('Failed to load crew database, initializing defaults:', err);
-  }
-
-  const seeded: CrewDatabase = {
-    'AST-042': {
-      crewId: 'AST-042',
-      password: 'orbit2026',
-      state: createSeedCrewState('AST-042', 'Dr. Maya Lin', MissionId.ISS),
-    },
-    'CDR-017': {
-      crewId: 'CDR-017',
-      password: 'artemis',
-      state: createSeedCrewState('CDR-017', 'Cmdr. Tariq Hassan', MissionId.LUNAR),
-    },
-  };
-  saveDatabase(seeded);
-  return seeded;
-}
-
-function saveDatabase(db: CrewDatabase): void {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(STORE_PATH, JSON.stringify(db, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Failed to persist crew database:', err);
-  }
-}
-
-let db: CrewDatabase = loadDatabase();
-
-function getAccountSummaries(): CrewAccountSummary[] {
-  return Object.values(db).map(({ state }) => ({
-    crewId: state.crewId,
-    crewName: state.crewName,
-    roleTitle: state.roleTitle,
-    missionId: state.missionId,
-    missionSol: state.missionSol,
-    avatarUrl: state.avatarUrl,
-  }));
+// Append a habit created by the assistant to a crew member's state.
+function appendHabitToCrew(crewId: string, habit: HabitTask): void {
+  const user = findUserByCrewId(crewId);
+  const state = user ? composeState(user.id) : undefined;
+  if (!user || !state) return;
+  saveState(user.id, { ...state, habits: [habit, ...state.habits] });
 }
 
 const addHabitDeclaration: FunctionDeclaration = {
@@ -158,150 +111,22 @@ function normalizeCategory(raw: string): HabitCategory {
   return HabitCategory.MUSCLE_BONE;
 }
 
-async function startServer() {
+export async function createApp() {
+  initDb();
+  purgeExpiredSessions();
+  setInterval(purgeExpiredSessions, 6 * 3600_000).unref();
+
   const app = express();
+  app.set('trust proxy', 1);
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    next();
+  });
   app.use(express.json({ limit: '5mb' }));
 
-  app.get('/api/crew/accounts', (_req, res) => {
-    res.json({ accounts: getAccountSummaries() });
-  });
-
-  app.post('/api/auth/login', (req, res) => {
-    const { crewId, password, missionId, clientDate } = req.body as {
-      crewId?: string;
-      password?: string;
-      missionId?: MissionId;
-      clientDate?: string;
-    };
-
-    const normalizedId = (crewId ?? '').trim().toUpperCase();
-    if (!normalizedId || !password) {
-      res.status(400).json({ error: 'Crew ID and password are required.' });
-      return;
-    }
-
-    const existing = db[normalizedId];
-    if (!existing) {
-      res.status(401).json({
-        error: 'Crew ID not found. Create a new account or choose an existing crew member.',
-      });
-      return;
-    }
-
-    if (existing.password !== password) {
-      res.status(401).json({ error: 'Invalid password for this Crew ID.' });
-      return;
-    }
-
-    if (missionId && Object.values(MissionId).includes(missionId)) {
-      existing.state.missionId = missionId;
-      saveDatabase(db);
-    }
-
-    const safeDate =
-      typeof clientDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(clientDate)
-        ? clientDate
-        : getSystemDateKey();
-
-    const { state: resetState, needsPersist } = applyDailyHabitReset(
-      existing.state,
-      safeDate
-    );
-    if (needsPersist) {
-      existing.state = resetState;
-      saveDatabase(db);
-    }
-
-    res.json({ state: existing.state, accounts: getAccountSummaries() });
-  });
-
-  app.post('/api/auth/register', (req, res) => {
-    const { crewId, password, crewName, missionId, avatarUrl, clientDate } = req.body as {
-      crewId?: string;
-      password?: string;
-      crewName?: string;
-      missionId?: MissionId;
-      avatarUrl?: string;
-      clientDate?: string;
-    };
-
-    const normalizedId = (crewId ?? '').trim().toUpperCase();
-    const cleanName = (crewName ?? '').trim();
-    if (!cleanName || !normalizedId || !password || password.length < 4) {
-      res.status(400).json({
-        error: 'Provide your Name, Crew ID, and a password of at least 4 characters.',
-      });
-      return;
-    }
-
-    if (db[normalizedId]) {
-      res.status(409).json({ error: 'This Crew ID already exists. Choose a different ID or sign in.' });
-      return;
-    }
-
-    const safeMission =
-      missionId && Object.values(MissionId).includes(missionId) ? missionId : MissionId.ISS;
-    const cleanAvatar = (avatarUrl ?? '').trim() || undefined;
-    const safeDate =
-      typeof clientDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(clientDate)
-        ? clientDate
-        : getSystemDateKey();
-    const state = createSeedCrewState(
-      normalizedId,
-      cleanName,
-      safeMission,
-      cleanAvatar,
-      safeDate
-    );
-
-    db[normalizedId] = {
-      crewId: normalizedId,
-      password,
-      state,
-    };
-    saveDatabase(db);
-
-    res.json({ state, accounts: getAccountSummaries() });
-  });
-
-  app.get('/api/state/:crewId', (req, res) => {
-    const normalizedId = req.params.crewId.trim().toUpperCase();
-    const record = db[normalizedId];
-    if (!record) {
-      res.status(404).json({ error: 'Crew profile not found.' });
-      return;
-    }
-    const clientDate =
-      typeof req.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
-        ? req.query.date
-        : getSystemDateKey();
-    const { state: resetState, needsPersist } = applyDailyHabitReset(
-      record.state,
-      clientDate
-    );
-    if (needsPersist) {
-      record.state = resetState;
-      saveDatabase(db);
-    }
-    res.json({ state: record.state });
-  });
-
-  app.put('/api/state/:crewId', (req, res) => {
-    const normalizedId = req.params.crewId.trim().toUpperCase();
-    const record = db[normalizedId];
-    if (!record) {
-      res.status(404).json({ error: 'Crew profile not found.' });
-      return;
-    }
-    const nextState = req.body?.state as CrewState | undefined;
-    if (!nextState || nextState.crewId !== normalizedId) {
-      res.status(400).json({ error: 'Invalid crew state payload.' });
-      return;
-    }
-    record.state = nextState;
-    saveDatabase(db);
-    res.json({ state: record.state });
-  });
+  app.use('/api', router);
 
   const DR7_MEDGEMMA_URL = 'https://dr7.ai/api/v1/medical/chat/completions';
 
@@ -473,7 +298,193 @@ async function startServer() {
     return { replyText, addedHabit };
   }
 
-  app.post('/api/assistant', async (req, res) => {
+  type AssistantResult = {
+    reply: string;
+    addedHabit?: HabitTask;
+    provider: string;
+    model: string;
+  };
+
+  type ProviderInput = {
+    message: string;
+    history?: Array<{ role: 'user' | 'assistant'; text: string }>;
+    baseContextLines: string[];
+  };
+
+  function buildAssistantSystemPrompt(baseContextLines: string[]): string {
+    return [
+      ...baseContextLines,
+      'When the astronaut describes a physical symptom, mental health challenge, sleep issue, or adverse watch reading:',
+      '1) Respond with warm, clinically grounded aerospace health guidance in 2-4 concise sentences referencing relevant NASA countermeasures (ARED, T2, CEVIS, BHP mindfulness, SSLA lighting, hydration/nutrition).',
+      '2) At the very end of your message, append ONE structured JSON block wrapped in <habit_json>...</habit_json> so Vitanaut automatically adds a tailored habit to their tracker and garden.',
+      'Format strictly as:',
+      '<habit_json>{"title":"Short Habit Title","category":"muscle_bone|cardio|mental_health|sleep_circadian|nutrition","equipmentOrProtocol":"Specific protocol or machine","scheduledTime":"Today · Next Window","durationMinutes":15,"description":"1-2 sentence step-by-step instructions.","mentalBenefit":"How it helps mood or nervous system recovery.","conditionNote":"Symptom or goal addressed"}</habit_json>',
+      'Never diagnose. Encourage the astronaut to contact the flight surgeon for severe, worsening or emergency symptoms.',
+    ].join('\n');
+  }
+
+  async function runDr7(input: ProviderInput): Promise<AssistantResult> {
+    const apiKey = process.env.DR7_API_KEY?.trim();
+    if (!apiKey) throw new Error('Dr7 is not configured.');
+    const model = process.env.DR7_MEDGEMMA_MODEL?.trim() || 'medgemma-4b-it';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25_000);
+    try {
+      const response = await fetch('https://dr7.ai/api/v1/medical/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: buildAssistantSystemPrompt(input.baseContextLines) },
+            ...(input.history ?? []).slice(-8).map((item) => ({
+              role: item.role === 'assistant' ? 'assistant' : 'user',
+              content: item.text,
+            })),
+            { role: 'user', content: input.message },
+          ],
+          max_tokens: 1000,
+          temperature: 0.35,
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Dr7 MedGemma returned ${response.status}: ${body.slice(0, 200)}`);
+      }
+
+      const payload = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }>;
+      };
+      const raw = payload.choices?.[0]?.message?.content;
+      const content = Array.isArray(raw) ? raw.map((part) => part.text ?? '').join('') : String(raw ?? '');
+      const { replyText, addedHabit } = parseMedGemmaResponse(content, input.message);
+      return {
+        reply: replyText || 'I am here to support your physical and mental health. How are you feeling right now?',
+        addedHabit,
+        provider: 'dr7-medgemma',
+        model,
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function runGemini(input: ProviderInput): Promise<AssistantResult> {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) throw new Error('Gemini is not configured.');
+    const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
+    const ai = new GoogleGenAI({ apiKey });
+    const systemInstruction = [
+      ...input.baseContextLines,
+      'Whenever the astronaut describes a physical symptom, mental health challenge, sleep issue, or adverse watch reading, acknowledge it warmly and call the add_habit_to_tracker tool with ONE tailored habit.',
+      'Never diagnose. Encourage the astronaut to contact the flight surgeon for severe, worsening or emergency symptoms.',
+    ].join('\n');
+
+    const contents: Content[] = (input.history ?? []).slice(-8).map((item) => ({
+      role: item.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: item.text }],
+    }));
+    contents.push({ role: 'user', parts: [{ text: input.message }] });
+
+    const response = await ai.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction,
+        tools: [{ functionDeclarations: [addHabitDeclaration] }],
+      },
+    });
+
+    let addedHabit: HabitTask | undefined;
+    let replyText = (response.text ?? '').trim();
+    const call = response.functionCalls?.[0];
+    if (call?.name === 'add_habit_to_tracker' && call.args) {
+      addedHabit = buildPrescribedHabit(call.args as Record<string, unknown>, input.message);
+    }
+
+    return {
+      reply:
+        replyText ||
+        (addedHabit
+          ? `I have added "${addedHabit.title}" to your daily mission tasks to support your recovery.`
+          : 'I am here to support both your physical readiness and mental wellbeing. How are you feeling right now?'),
+      addedHabit,
+      provider: 'gemini',
+      model,
+    };
+  }
+
+  async function runOpenAI(input: ProviderInput): Promise<AssistantResult> {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) throw new Error('OpenAI is not configured.');
+    const baseUrl = (
+      process.env.OPENAI_BASE_URL ||
+      process.env.OPENAI_API_BASE ||
+      'https://api.openai.com/v1'
+    ).replace(/\/+$/, '');
+    const model = process.env.OPENAI_MODEL?.trim() || 'gpt-5-mini';
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: buildAssistantSystemPrompt(input.baseContextLines) },
+            ...(input.history ?? []).slice(-8).map((item) => ({
+              role: item.role === 'assistant' ? 'assistant' : 'user',
+              content: item.text,
+            })),
+            { role: 'user', content: input.message },
+          ],
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`OpenAI returned ${response.status}: ${body.slice(0, 200)}`);
+      }
+
+      const payload = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }>;
+      };
+      const raw = payload.choices?.[0]?.message?.content;
+      const content = Array.isArray(raw) ? raw.map((part) => part.text ?? '').join('') : String(raw ?? '');
+      const { replyText, addedHabit } = parseMedGemmaResponse(content, input.message);
+      return {
+        reply: replyText || 'I am here to support your physical and mental health. How are you feeling right now?',
+        addedHabit,
+        provider: 'openai',
+        model,
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  function runLocalAssistant(input: ProviderInput): AssistantResult {
+    const addedHabit = inferHabitFromCondition(input.message);
+    const reply = addedHabit
+      ? `Thank you for telling me. I have added "${addedHabit.title}" to your daily tasks as a first countermeasure, and your garden will grow as you complete it. Keep the effort gentle, hydrate, and tell the flight surgeon if the symptom worsens or you feel unsafe.`
+      : 'I am here to support your physical readiness and mental wellbeing. Tell me what you are feeling — pain, sleep problems, stress, isolation or fatigue — and I will suggest a NASA-aligned countermeasure and add it to your tracker.';
+    return { reply, addedHabit, provider: 'local-guidance', model: 'rule-based' };
+  }
+
+  app.post('/api/assistant', requireAuth, async (req, res) => {
     const { crewId, message, history } = req.body as {
       crewId?: string;
       message?: string;
@@ -485,31 +496,15 @@ async function startServer() {
       return;
     }
 
-    const dr7ApiKey = process.env.DR7_API_KEY?.trim();
-    const hasDr7Key =
-      Boolean(dr7ApiKey) &&
-      dr7ApiKey !== 'MY_DR7_API_KEY' &&
-      dr7ApiKey !== 'sk-dr7-your-api-key';
-    const dr7Model =
-      process.env.DR7_MEDGEMMA_MODEL?.trim() || 'medgemma-4b-it';
-
-    const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
-    const hasGeminiKey =
-      Boolean(geminiApiKey) && geminiApiKey !== 'MY_GEMINI_API_KEY';
-
-    if (!hasDr7Key && !hasGeminiKey) {
-      res.status(503).json({
-        error:
-          'DR7_API_KEY is not configured in environment secrets. Add your Dr7.ai API key to use MedGemma.',
-      });
+    const normalizedId = (crewId ?? req.user!.crewId).trim().toUpperCase();
+    if (normalizedId !== req.user!.crewId.toUpperCase()) {
+      res.status(403).json({ error: 'This profile belongs to another crew member.' });
       return;
     }
 
-    const normalizedId = (crewId ?? 'AST-042').trim().toUpperCase();
-    const record = db[normalizedId];
-    const crewState = record?.state;
-    const latestWatch =
-      crewState?.watchReadings?.[crewState.watchReadings.length - 1];
+    const user = findUserByCrewId(normalizedId);
+    const crewState = user ? composeState(user.id) : undefined;
+    const latestWatch = crewState?.watchReadings?.[crewState.watchReadings.length - 1];
 
     const baseContextLines = [
       'You are MedGemma, the Spaceflight Medical & Behavioral Health Assistant inside Vitanaut, a NASA-inspired astronaut habit sanctuary.',
@@ -522,218 +517,41 @@ async function startServer() {
         : '',
     ].filter(Boolean);
 
-    // Primary Path: Dr7.ai MedGemma OpenAI-compatible API
-    if (hasDr7Key && dr7ApiKey) {
-      const medGemmaSystemPrompt = [
-        ...baseContextLines,
-        'When the astronaut describes a physical symptom, mental health challenge, sleep issue, or adverse watch reading:',
-        '1) Respond with warm, clinically grounded aerospace health guidance in 2-4 concise sentences referencing relevant NASA countermeasures (ARED, T2, CEVIS, BHP mindfulness, SSLA lighting, hydration/nutrition).',
-        '2) At the very end of your message, append ONE structured JSON block wrapped in <habit_json>...</habit_json> so Vitanaut automatically adds a tailored habit to their tracker and garden.',
-        'Format strictly as:',
-        '<habit_json>{"title":"Short Habit Title","category":"muscle_bone|cardio|mental_health|sleep_circadian|nutrition","equipmentOrProtocol":"Specific protocol or machine","scheduledTime":"Today · Next Window","durationMinutes":15,"description":"1-2 sentence step-by-step instructions.","mentalBenefit":"How it helps mood or nervous system recovery.","conditionNote":"Symptom or goal addressed"}</habit_json>',
-      ].join('\n');
+    const input: ProviderInput = { message, history, baseContextLines };
 
-      const medGemmaMessages = [
-        { role: 'system', content: medGemmaSystemPrompt },
-        ...(history ?? []).slice(-8).map((item) => ({
-          role: item.role === 'assistant' ? 'assistant' : 'user',
-          content: item.text,
-        })),
-        { role: 'user', content: message },
-      ];
+    const isPlaceholder = (value: string | undefined) =>
+      !value || value === 'MY_DR7_API_KEY' || value === 'MY_GEMINI_API_KEY' || value === 'sk-dr7-your-api-key';
 
+    const providers: Array<{ label: string; run: () => Promise<AssistantResult> }> = [];
+    if (!isPlaceholder(process.env.DR7_API_KEY?.trim())) {
+      providers.push({ label: 'dr7-medgemma', run: () => runDr7(input) });
+    }
+    if (!isPlaceholder(process.env.GEMINI_API_KEY?.trim())) {
+      providers.push({ label: 'gemini', run: () => runGemini(input) });
+    }
+    if (!isPlaceholder(process.env.OPENAI_API_KEY?.trim())) {
+      providers.push({ label: 'openai', run: () => runOpenAI(input) });
+    }
+
+    let result: AssistantResult | undefined;
+    for (const provider of providers) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25_000);
-        const dr7Res = await fetch(DR7_MEDGEMMA_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${dr7ApiKey}`,
-          },
-          body: JSON.stringify({
-            model: dr7Model,
-            messages: medGemmaMessages,
-            max_tokens: 1000,
-            temperature: 0.35,
-            stream: false,
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (dr7Res.ok) {
-          const payload = (await dr7Res.json()) as {
-            choices?: Array<{
-              message?: { content?: string | Array<{ text?: string }> };
-            }>;
-          };
-          const rawMessageContent = payload.choices?.[0]?.message?.content;
-          const contentText = Array.isArray(rawMessageContent)
-            ? rawMessageContent.map((p) => p.text ?? '').join('')
-            : String(rawMessageContent ?? '');
-
-          const { replyText, addedHabit } = parseMedGemmaResponse(
-            contentText,
-            message
-          );
-
-          if (addedHabit && record) {
-            record.state.habits.unshift(addedHabit);
-            saveDatabase(db);
-          }
-
-          const finalReply =
-            replyText ||
-            (addedHabit
-              ? `I have added "${addedHabit.title}" to your daily mission tasks based on your condition.`
-              : 'I am here to support your physical and mental health. How are you feeling right now?');
-
-          res.json({
-            reply: finalReply,
-            addedHabit: addedHabit ?? null,
-            provider: 'dr7-medgemma',
-            model: dr7Model,
-          });
-          return;
-        }
-
-        const errBody = await dr7Res.text();
-        console.error(`Dr7.ai MedGemma error (${dr7Res.status}):`, errBody);
-
-        if (dr7Res.status === 401 || dr7Res.status === 403) {
-          res.status(dr7Res.status).json({
-            error:
-              'Dr7.ai MedGemma authentication failed. Please check DR7_API_KEY in environment secrets.',
-          });
-          return;
-        }
-
-        if (!hasGeminiKey) {
-          res.status(dr7Res.status).json({
-            error: `Dr7.ai MedGemma service returned status ${dr7Res.status}.`,
-          });
-          return;
-        }
-      } catch (dr7Err: unknown) {
-        console.error('Dr7.ai MedGemma request failed:', dr7Err);
-        if (!hasGeminiKey) {
-          const msg =
-            dr7Err instanceof Error
-              ? dr7Err.message
-              : 'Failed to contact Dr7.ai MedGemma.';
-          res.status(502).json({ error: msg });
-          return;
-        }
+        result = await provider.run();
+        break;
+      } catch (error: unknown) {
+        console.error(`Assistant provider ${provider.label} failed:`, error);
       }
     }
 
-    // Fallback Path if DR7_API_KEY is unset or Dr7.ai experienced a transient outage
-    const ai = new GoogleGenAI({
-      apiKey: geminiApiKey!,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    });
-
-    const systemInstruction = [
-      ...baseContextLines,
-      'Whenever the astronaut describes a physical symptom, mental health challenge, sleep issue, or adverse watch reading, you MUST:',
-      '1) Acknowledge their physical and emotional experience warmly and practically in 2-4 concise sentences grounded in spaceflight countermeasures (ARED, T2, CEVIS, BHP mindfulness, SSLA lighting, nutrition).',
-      '2) Call the `add_habit_to_tracker` tool to immediately create ONE targeted, realistic habit tailored to their condition so it appears in their habit list and grows a corresponding element in their garden (stone = muscle_bone, bird = mental_health, flower = cardio, sunbeam = sleep_circadian, tree = nutrition).',
-      'Do not ask them to add the habit manually—use the tool directly whenever a condition, symptom, or request for a routine is mentioned.',
-    ].join('\n');
-
-    const contents: Content[] = (history ?? [])
-      .slice(-8)
-      .map((item) => ({
-        role: item.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: item.text }],
-      }));
-    contents.push({ role: 'user', parts: [{ text: message }] });
-
-    try {
-      const response1 = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
-        contents,
-        config: {
-          systemInstruction,
-          tools: [{ functionDeclarations: [addHabitDeclaration] }],
-        },
-      });
-
-      const functionCalls = response1.functionCalls;
-      let addedHabit: HabitTask | undefined;
-      let replyText = (response1.text ?? '').trim();
-
-      if (functionCalls && functionCalls.length > 0) {
-        const call = functionCalls[0];
-        if (call.name === 'add_habit_to_tracker' && call.args) {
-          addedHabit = buildPrescribedHabit(
-            call.args as Record<string, unknown>,
-            message
-          );
-
-          if (record) {
-            record.state.habits.unshift(addedHabit);
-            saveDatabase(db);
-          }
-
-          const previousContent = response1.candidates?.[0]?.content;
-          if (previousContent) {
-            const response2 = await ai.models.generateContent({
-              model: 'gemini-4-hydrogen',
-              contents: [
-                ...contents,
-                previousContent,
-                {
-                  role: 'user',
-                  parts: [
-                    {
-                      functionResponse: {
-                        id: call.id,
-                        name: call.name,
-                        response: {
-                          status: 'added',
-                          habitTitle: addedHabit.title,
-                          category: addedHabit.category,
-                          gardenElement: addedHabit.gardenElement,
-                        },
-                      },
-                    },
-                  ],
-                },
-              ],
-              config: {
-                systemInstruction,
-                tools: [{ functionDeclarations: [addHabitDeclaration] }],
-              },
-            });
-            replyText = (response2.text ?? replyText).trim();
-          }
-        }
-      }
-
-      if (!replyText) {
-        replyText = addedHabit
-          ? `I have added "${addedHabit.title}" to your daily mission tasks to support your recovery.`
-          : 'I am here to support both your physical readiness and mental wellbeing. How are you feeling right now?';
-      }
-
-      res.json({
-        reply: replyText,
-        addedHabit: addedHabit ?? null,
-        provider: 'fallback',
-        model: 'gemini-4-hydrogen',
-      });
-    } catch (err: unknown) {
-      console.error('Assistant error:', err);
-      const messageStr =
-        err instanceof Error ? err.message : 'Assistant request failed.';
-      res.status(500).json({ error: messageStr });
+    if (!result) {
+      result = runLocalAssistant(input);
     }
+
+    if (result.addedHabit) {
+      appendHabitToCrew(normalizedId, result.addedHabit);
+    }
+
+    res.json(result);
   });
 
   if (process.env.NODE_ENV !== 'production') {
@@ -751,9 +569,16 @@ async function startServer() {
     });
   }
 
+  return app;
+}
+
+async function startServer() {
+  const app = await createApp();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Vitanaut server running on http://0.0.0.0:${PORT}`);
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}

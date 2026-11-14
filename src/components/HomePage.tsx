@@ -13,6 +13,8 @@ import {
 import { MISSION_LANDSCAPES } from '../data/missionLandscapes.ts';
 import { CrewAccountSummary, CrewState, MissionId } from '../types.ts';
 import { getSystemDateKey } from '../utils/dailyReset.ts';
+import { setToken } from '../lib/api.ts';
+import { HealthAlerts } from './HealthAlerts.tsx';
 
 interface HomePageProps {
   currentCrew: CrewState | null;
@@ -156,6 +158,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       const data = (await res.json()) as {
         state?: CrewState;
         accounts?: CrewAccountSummary[];
+        token?: string;
         error?: string;
       };
       if (!res.ok || !data.state) {
@@ -163,6 +166,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         setCreateLoading(false);
         return;
       }
+      setToken(data.token ?? null);
       resetCreateForm();
       setShowCreateModal(false);
       onAuthenticated(data.state, data.accounts ?? accounts);
@@ -192,6 +196,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       const data = (await res.json()) as {
         state?: CrewState;
         accounts?: CrewAccountSummary[];
+        token?: string;
         error?: string;
       };
       if (!res.ok || !data.state) {
@@ -199,6 +204,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         setSwitchLoading(false);
         return;
       }
+      setToken(data.token ?? null);
       setSwitchTarget(null);
       setSwitchPassword('');
       onAuthenticated(data.state, data.accounts ?? accounts);
@@ -514,6 +520,8 @@ export const HomePage: React.FC<HomePageProps> = ({
               </button>
             </div>
           </section>
+
+          <HealthAlerts crewState={currentCrew} />
 
           {/* All Registered Crew Accounts Directory */}
           <section className="bg-white border border-[#D5E3DD] rounded-2xl p-6 sm:p-7 space-y-5">

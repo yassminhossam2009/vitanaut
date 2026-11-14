@@ -321,14 +321,14 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ crewState }) => {
       <div className="bg-white border border-[#D5E3DD] rounded-2xl p-4 sm:p-5 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Interactive Category Color Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
             <button
               type="button"
               onClick={() => {
                 setCategoryFilter('all');
                 setHoveredIdx(null);
               }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap cursor-pointer shrink-0 ${
                 categoryFilter === 'all'
                   ? 'bg-[#0F2922] text-white border-[#0F2922]'
                   : 'bg-[#F8FBFA] text-[#3B5950] border-[#D5E3DD] hover:text-[#0F2922]'
@@ -364,7 +364,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ crewState }) => {
                           color: '#0F2922',
                         }
                   }
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border inline-flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border inline-flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer shrink-0"
                 >
                   <span
                     className="w-2.5 h-2.5 rounded-xs shrink-0"

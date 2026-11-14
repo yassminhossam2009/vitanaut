@@ -22,6 +22,7 @@ import {
   WatchReading,
 } from './types.ts';
 import { applyDailyHabitReset, getSystemDateKey } from './utils/dailyReset.ts';
+import { api, getToken, setToken } from './lib/api.ts';
 
 const STORAGE_CREW_ID_KEY = 'verdant_orbit_crew_id';
 
@@ -38,6 +39,7 @@ export default function App() {
 
   useEffect(() => {
     const savedCrewId = window.localStorage.getItem(STORAGE_CREW_ID_KEY);
+    const hasToken = Boolean(getToken());
 
     const loadAccounts = fetch('/api/crew/accounts')
       .then((res) => (res.ok ? res.json() : { accounts: [] }))
@@ -48,13 +50,9 @@ export default function App() {
         setAccounts([]);
       });
 
-    const loadSession = savedCrewId
-      ? fetch(
-          `/api/state/${encodeURIComponent(savedCrewId)}?date=${encodeURIComponent(
-            getSystemDateKey()
-          )}`
-        )
-          .then((res) => (res.ok ? res.json() : null))
+    const loadSession = savedCrewId && hasToken
+      ? api
+          .getState(savedCrewId, getSystemDateKey())
           .then((data: { state?: CrewState } | null) => {
             if (data?.state) {
               const { state: syncedState, needsPersist } = applyDailyHabitReset(
@@ -62,11 +60,7 @@ export default function App() {
               );
               setCrewState(syncedState);
               if (needsPersist) {
-                void fetch(`/api/state/${encodeURIComponent(syncedState.crewId)}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ state: syncedState }),
-                }).catch(() => {});
+                void api.saveState(syncedState).catch(() => {});
               }
             } else {
               window.localStorage.removeItem(STORAGE_CREW_ID_KEY);
@@ -74,6 +68,7 @@ export default function App() {
           })
           .catch(() => {
             window.localStorage.removeItem(STORAGE_CREW_ID_KEY);
+            setToken(null);
           })
       : Promise.resolve();
 
@@ -97,11 +92,7 @@ export default function App() {
           : a
       )
     );
-    void fetch(`/api/state/${encodeURIComponent(nextState.crewId)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state: nextState }),
-    }).catch(() => {
+    void api.saveState(nextState).catch(() => {
       // Non-fatal persistence retry handled on next action
     });
   };
@@ -172,6 +163,8 @@ export default function App() {
   };
 
   const handleSignOut = () => {
+    void api.logout();
+    setToken(null);
     window.localStorage.removeItem(STORAGE_CREW_ID_KEY);
     setCrewState(null);
     setActiveTab('home');
@@ -264,6 +257,9 @@ export default function App() {
 
   const handleAddWatchReading = (reading: WatchReading) => {
     if (!crewState) return;
+    // Measurements go to their own table through a dedicated endpoint; the
+    // generic state sync deliberately ignores the watchReadings array.
+    void api.addWatchReading(reading).catch(() => {});
     persistState({
       ...crewState,
       watchReadings: [...crewState.watchReadings, reading],

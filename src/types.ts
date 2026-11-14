@@ -1,28 +1,25 @@
-export const HabitCategory = {
-  MUSCLE_BONE: 'muscle_bone',
-  CARDIO: 'cardio',
-  MENTAL_HEALTH: 'mental_health',
-  SLEEP_CIRCADIAN: 'sleep_circadian',
-  NUTRITION: 'nutrition',
-} as const;
-export type HabitCategory = (typeof HabitCategory)[keyof typeof HabitCategory];
+export enum HabitCategory {
+  MUSCLE_BONE = 'muscle_bone',
+  CARDIO = 'cardio',
+  MENTAL_HEALTH = 'mental_health',
+  SLEEP_CIRCADIAN = 'sleep_circadian',
+  NUTRITION = 'nutrition',
+}
 
-export const GardenElement = {
-  STONE: 'stone',
-  BIRD: 'bird',
-  FLOWER: 'flower',
-  SUNBEAM: 'sunbeam',
-  TREE: 'tree',
-} as const;
-export type GardenElement = (typeof GardenElement)[keyof typeof GardenElement];
+export enum GardenElement {
+  STONE = 'stone',
+  BIRD = 'bird',
+  FLOWER = 'flower',
+  SUNBEAM = 'sunbeam',
+  TREE = 'tree',
+}
 
-export const MissionId = {
-  ISS: 'iss',
-  LUNAR: 'lunar',
-  MARS: 'mars',
-  DEEP_SPACE: 'deep_space',
-} as const;
-export type MissionId = (typeof MissionId)[keyof typeof MissionId];
+export enum MissionId {
+  ISS = 'iss',
+  LUNAR = 'lunar',
+  MARS = 'mars',
+  DEEP_SPACE = 'deep_space',
+}
 
 export type PageId = 'tasks' | 'assistant' | 'landscape' | 'watch' | 'history';
 
@@ -113,4 +110,68 @@ export interface NasaCountermeasureResource {
   dailyTarget: string;
   spaceflightRisk: string;
   url: string;
+}
+
+
+export interface ParameterBands {
+  greenMin: number;
+  greenMax: number;
+  yellowMin: number;
+  yellowMax: number;
+  redBelow: number;
+  redAbove: number;
+}
+
+export type ParameterStatus = 'monitored' | 'standard' | 'trend' | 'report';
+
+export interface GuidelineParameter {
+  parameterId: string;
+  domain: string;
+  domainLabel: string;
+  name: string;
+  whatToTrack: string;
+  targetText: string;
+  thresholdBasis: string;
+  monitoringSource: string;
+  cadence: string;
+  relatedRisks: string;
+  countermeasures: string;
+  consequence: string;
+  operationalImpact: string;
+  notes: string;
+  dateRetrieved: string;
+  status: ParameterStatus;
+  metricKey: string | null;
+  aggregation: string | null;
+  bandLabel: string | null;
+  unit: string | null;
+  bands: ParameterBands | null;
+}
+
+export interface HealthAlert {
+  parameterId: string;
+  name: string;
+  domain: string;
+  domainLabel: string;
+  severity: 'red' | 'yellow';
+  value: number;
+  unit: string | null;
+  greenMin: number;
+  greenMax: number;
+  bandLabel: string | null;
+  targetText: string;
+  consequence: string;
+  operationalImpact: string;
+  countermeasures: string;
+  relatedRisks: string;
+  monitoringSource: string;
+  cadence: string;
+  aggregation: string;
+  sampleSize: number;
+}
+
+export interface WarningReport {
+  generatedAt: string;
+  checked: Array<{ parameterId: string; name: string; value: number; unit: string | null }>;
+  alerts: HealthAlert[];
 }

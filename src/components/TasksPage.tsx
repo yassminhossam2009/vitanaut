@@ -206,7 +206,7 @@ export const TasksPage: React.FC<TasksPageProps> = ({
     if (cleaned.personalCondition) {
       const cond = cleaned.personalCondition;
       const lower = cond.toLowerCase();
-      let cat: HabitCategory = HabitCategory.MENTAL_HEALTH;
+      let cat = HabitCategory.MENTAL_HEALTH;
       let protocol = 'NASA BHP Personal Recovery Protocol';
       let duration = 15;
 

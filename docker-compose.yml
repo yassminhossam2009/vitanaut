@@ -1,0 +1,19 @@
+services:
+  vitanaut:
+    build: .
+    image: vitanaut:latest
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      VITANAUT_DB_PATH: /app/data/vitanaut.db
+      # Optional assistant providers
+      # DR7_API_KEY: ${DR7_API_KEY}
+      # GEMINI_API_KEY: ${GEMINI_API_KEY}
+    volumes:
+      - vitanaut-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  vitanaut-data:

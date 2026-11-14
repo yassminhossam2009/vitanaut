@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, HeartPulse, Send, Sprout } from 'lucide-react';
 import { CATEGORY_META, GARDEN_ELEMENT_META } from '../data/nasaResources.ts';
 import { ChatMessage, CrewState, HabitTask } from '../types.ts';
+import { apiFetch } from '../lib/api.ts';
 
 interface AssistantPageProps {
   crewState: CrewState;
@@ -59,7 +60,7 @@ export const AssistantPage: React.FC<AssistantPageProps> = ({
     setSending(true);
 
     try {
-      const res = await fetch('/api/assistant', {
+      const res = await apiFetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
