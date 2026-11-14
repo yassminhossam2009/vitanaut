@@ -331,6 +331,7 @@ export default function App() {
                 onGoToTasks={() => setActiveTab('tasks')}
                 onGoToLandscape={() => setActiveTab('landscape')}
                 onOpenNasaResources={() => setNasaModalOpen(true)}
+                onChangeMission={handleChangeMission}
               />
             )}
 

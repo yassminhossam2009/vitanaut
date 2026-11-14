@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
+  Check,
   ImagePlus,
   KeyRound,
   LogOut,
+  MapPin,
   Plus,
   UserCheck,
   Users,
@@ -24,6 +26,7 @@ interface HomePageProps {
   onGoToTasks: () => void;
   onGoToLandscape: () => void;
   onOpenNasaResources: () => void;
+  onChangeMission: (missionId: MissionId) => void;
 }
 
 function getInitials(name: string): string {
@@ -97,9 +100,11 @@ export const HomePage: React.FC<HomePageProps> = ({
   onGoToTasks,
   onGoToLandscape,
   onOpenNasaResources,
+  onChangeMission,
 }) => {
   // Create Account Form state (used both on first-time screen and Create Another Account modal)
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newId, setNewId] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -465,13 +470,23 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <h1 className="text-2xl sm:text-3xl font-bold text-[#0F2922] tracking-tight">
                   {currentCrew.crewName}
                 </h1>
-                <div className="text-sm text-[#3B5950]">
-                  {MISSION_LANDSCAPES[currentCrew.missionId].name} ·{' '}
-                  <span className="font-mono">
-                    {currentCrew.habits.filter((h) => h.completedToday).length}/
-                    {currentCrew.habits.length}
-                  </span>{' '}
-                  habits complete today
+                <div className="text-sm text-[#3B5950] flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <span>
+                    {MISSION_LANDSCAPES[currentCrew.missionId].name} ·{' '}
+                    <span className="font-mono">
+                      {currentCrew.habits.filter((h) => h.completedToday).length}/
+                      {currentCrew.habits.length}
+                    </span>{' '}
+                    habits complete today
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationModal(true)}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-[#075985] bg-[#E0F2FE] hover:bg-[#BAE6FD] border border-[#7DD3FC] rounded-md transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    Change location
+                  </button>
                 </div>
               </div>
             </div>
@@ -620,6 +635,84 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
           </section>
         </>
+      )}
+
+      {/* Change Location Modal */}
+      {showLocationModal && (
+        <div
+          className="fixed inset-0 z-40 bg-[#0F2922]/35 backdrop-blur-[2px] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="change-location-modal-title"
+        >
+          <div className="bg-white border border-[#D5E3DD] rounded-2xl w-full max-w-md p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-4 pb-3 border-b border-[#E4EDE9]">
+              <div>
+                <h2
+                  id="change-location-modal-title"
+                  className="text-lg font-bold text-[#0F2922]"
+                >
+                  Change Mission Location
+                </h2>
+                <p className="text-xs text-[#4A685F]">
+                  Choose where you are stationed. This updates your garden and app background.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLocationModal(false)}
+                aria-label="Close location dialog"
+                className="p-1.5 rounded-lg text-[#4A685F] hover:bg-[#EFF6F2] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {Object.values(MISSION_LANDSCAPES).map((mission) => {
+                const active = mission.id === currentCrew?.missionId;
+                return (
+                  <button
+                    key={mission.id}
+                    type="button"
+                    onClick={() => {
+                      onChangeMission(mission.id);
+                      setShowLocationModal(false);
+                    }}
+                    className={`relative text-left rounded-xl border p-3 transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-[#E0F2FE] border-[#0369A1]'
+                        : 'bg-[#F6FAF8] border-[#D5E3DD] hover:border-[#0369A1]/60'
+                    }`}
+                  >
+                    {active && (
+                      <Check className="w-4 h-4 text-[#0369A1] absolute top-2 right-2" />
+                    )}
+                    <span className="block text-xs font-bold text-[#0F2922] pr-4">
+                      {mission.shortName}
+                    </span>
+                    <span className="block text-[10px] text-[#4A685F] mt-1">
+                      {mission.gravity}
+                    </span>
+                    <span className="block text-[10px] text-[#4A685F] mt-0.5">
+                      {mission.location}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLocationModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-[#3B5950] bg-white border border-[#D5E3DD] rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Create Another Account Modal */}
