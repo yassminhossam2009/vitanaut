@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "source": "habit_domain_parameters.csv",
+  "source": "habit-domain-parameters.csv",
   "parameters": [
     {
       "parameterId": "total_sleep_time",

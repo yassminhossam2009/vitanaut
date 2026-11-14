@@ -10,3 +10,4 @@ coverage/
 # Local database (contains personal health data)
 data/
 .vercel
+server.js

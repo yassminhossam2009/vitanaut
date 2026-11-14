@@ -89,6 +89,11 @@ export function initDb(): void {
     );
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
+    CREATE TABLE IF NOT EXISTS revoked_sessions (
+      token_hash TEXT PRIMARY KEY,
+      revoked_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS profiles (
       user_id               TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       crew_name             TEXT NOT NULL,
@@ -760,7 +765,7 @@ export function upsertParameters(params: RefParameter[]): number {
   return params.length;
 }
 
-const CATALOG_PATH = path.resolve(process.cwd(), 'db/reference_parameters.json');
+const CATALOG_PATH = path.resolve(process.cwd(), 'database/reference-parameters.json');
 
 export function seedReferenceCatalog(): number {
   if (!fs.existsSync(CATALOG_PATH)) {

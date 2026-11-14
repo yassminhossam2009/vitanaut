@@ -1,6 +1,6 @@
 /**
  * Threshold tests for the warning engine. Uses a temporary database.
- *   VITANAUT_DB_PATH=/tmp/vitanaut-test.db npx tsx scripts/test-warnings.ts
+ *   VITANAUT_DB_PATH=/tmp/vitanaut-test.db npx tsx tests/warnings.test.ts
  */
 import { initDb, closeDb } from '../server/db.ts';
 import { evaluateWarnings } from '../server/warnings.ts';

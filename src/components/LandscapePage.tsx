@@ -22,7 +22,7 @@ import {
   buildMissionIsland,
   groundHeightAt,
   ISLAND_THEMES,
-} from './landscape3d/buildDiorama.ts';
+} from './landscape-3d/buildDiorama.ts';
 
 interface LandscapePageProps {
   crewState: CrewState;

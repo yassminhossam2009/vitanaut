@@ -1,5 +1,5 @@
 // End-to-end API test. Run against a running server:
-//   BASE_URL=http://localhost:3100 node scripts/smoke-api.mjs
+//   BASE_URL=http://localhost:3100 node tests/api-smoke.mjs
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
 let passed = 0;

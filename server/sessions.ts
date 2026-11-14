@@ -69,6 +69,16 @@ export function createSession(
 }
 
 export function resolveSession(token: string): SessionUser | undefined {
+  try {
+    const revoked = getDb()
+      .prepare('SELECT 1 FROM revoked_sessions WHERE token_hash = ?')
+      .pluck()
+      .get(sha256(token));
+    if (revoked) return undefined;
+  } catch {
+    // A fresh instance may not have the audit table yet; the signature is
+    // still cryptographically valid.
+  }
   const [encoded, signature] = token.split('.');
   if (!encoded || !signature) return undefined;
 
@@ -97,21 +107,38 @@ export function resolveSession(token: string): SessionUser | undefined {
 }
 
 export function revokeSession(token: string): void {
+  const hash = sha256(token);
   try {
-    getDb().prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha256(token));
+    getDb()
+      .prepare(
+        'INSERT OR REPLACE INTO revoked_sessions (token_hash, revoked_at, expires_at) VALUES (?, ?, ?)'
+      )
+      .run(hash, new Date().toISOString(), new Date(Date.now() + SESSION_DAYS * 86400_000).toISOString());
+    getDb().prepare('DELETE FROM sessions WHERE token_hash = ?').run(hash);
   } catch {
-    // Nothing to revoke in a stateless deployment.
+    // Logout still clears the browser token even if the audit DB is unavailable.
   }
 }
-
 export function revokeAllSessions(userId: string): void {
-  getDb().prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+  try {
+    const rows = getDb()
+      .prepare('SELECT token_hash, expires_at FROM sessions WHERE user_id = ?')
+      .all(userId) as Array<{ token_hash: string; expires_at: string }>;
+    const revoke = getDb().prepare(
+      'INSERT OR REPLACE INTO revoked_sessions (token_hash, revoked_at, expires_at) VALUES (?, ?, ?)'
+    );
+    const now = new Date().toISOString();
+    for (const row of rows) revoke.run(row.token_hash, now, row.expires_at);
+    getDb().prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+  } catch {
+    // Best effort on a stateless instance.
+  }
 }
-
 export function purgeExpiredSessions(): void {
-  getDb().prepare('DELETE FROM sessions WHERE expires_at < ?').run(new Date().toISOString());
+  const now = new Date().toISOString();
+  getDb().prepare('DELETE FROM sessions WHERE expires_at < ?').run(now);
+  getDb().prepare('DELETE FROM revoked_sessions WHERE expires_at < ?').run(now);
 }
-
 export function parseCookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!header) return out;

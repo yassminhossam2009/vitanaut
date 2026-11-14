@@ -22,7 +22,7 @@ RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server.js ./server.js
-COPY --from=build /app/db/reference_parameters.json ./db/reference_parameters.json
+COPY --from=build /app/database/reference-parameters.json ./database/reference-parameters.json
 
 RUN mkdir -p /app/data && chown -R node:node /app
 USER node

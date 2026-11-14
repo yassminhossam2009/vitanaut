@@ -6,7 +6,7 @@ where the app has a live metric and a defensible basis; the band label always
 states whether it is a NASA limit, ISS practice, or an app screening default.
 
 Usage:
-    python3 scripts/build_reference_catalog.py db/source/habit_domain_parameters.csv
+    python3 scripts/build-reference-catalog.py database/source/habit-domain-parameters.csv
 """
 import csv
 import json
@@ -152,7 +152,7 @@ def main(path: str) -> None:
             "bands": {"greenMin": 50, "greenMax": 100, "yellowMin": 40, "yellowMax": 120, "redBelow": 40, "redAbove": 120},
         }
     )
-    target = Path("db/reference_parameters.json")
+    target = Path("database/reference-parameters.json")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps({"version": 1, "source": src.name, "parameters": out}, indent=2) + "\n")
     monitored = sum(1 for p in out if p["status"] == "monitored")
@@ -160,4 +160,4 @@ def main(path: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "db/source/habit_domain_parameters.csv")
+    main(sys.argv[1] if len(sys.argv) > 1 else "database/source/habit-domain-parameters.csv")

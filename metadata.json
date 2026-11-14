@@ -1,6 +1,0 @@
-{
-  "name": "Verdant Orbit",
-  "description": "Astronaut habit, mental health, and biometric watch sanctuary with an adaptive space garden and Gemini flight-surgeon assistant.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
