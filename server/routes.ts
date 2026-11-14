@@ -54,9 +54,16 @@ function bearerToken(req: Request): string | undefined {
 function authenticate(req: Request): boolean {
   const token = bearerToken(req);
   if (!token) return false;
-  const user = resolveSession(token);
-  if (!user) return false;
-  req.user = user;
+  const session = resolveSession(token);
+  if (!session) return false;
+
+  // Vercel instances each seed their own SQLite file, so user UUIDs can differ
+  // between instances. Resolve the local row by the stable crew ID and keep the
+  // signed claims as a fallback for a user created on another instance.
+  const local = findUserByCrewId(session.crewId);
+  req.user = local
+    ? { id: local.id, crewId: local.crew_id, role: local.role }
+    : session;
   return true;
 }
 
@@ -107,7 +114,7 @@ function noteFailure(key: string) {
 }
 
 function issueSession(res: Response, userId: string, crewId: string, role: string) {
-  const { token, expiresAt } = createSession(userId);
+  const { token, expiresAt } = createSession(userId, crewId, role);
   res.setHeader('Set-Cookie', sessionCookie(token, expiresAt));
   return { token, expiresAt, user: { id: userId, crewId, role } };
 }
