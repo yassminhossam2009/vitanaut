@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
+  ChevronDown,
   HeartPulse,
+  RefreshCw,
   ShieldCheck,
   Stethoscope,
   TriangleAlert,
@@ -19,6 +21,43 @@ const AGGREGATION_LABEL: Record<string, string> = {
   avg_7d_mood: '7-day check-in average',
 };
 
+const PLAIN_GUIDANCE: Record<
+  string,
+  { summary: string; action: string }
+> = {
+  total_sleep_time: {
+    summary: 'You are not getting enough sleep.',
+    action:
+      'Start winding down 30 minutes earlier tonight. Keep the cabin dark and cool, and aim for 8–8.5 hours.',
+  },
+  exercise_dose: {
+    summary: 'You are moving less than the healthy weekly amount.',
+    action:
+      'Add a 20–30 minute walk or easy cardio session today. Build up toward about 90 minutes of activity per day.',
+  },
+  stress: {
+    summary: 'Your stress level is higher than the healthy range.',
+    action:
+      'Take a 10-minute slow-breathing break and check in with a crewmate. If it stays high, tell your flight surgeon.',
+  },
+  mood: {
+    summary: 'Your mood has been low this week.',
+    action:
+      'Try a 15-minute Earth-gazing break or a call home. If the low mood lasts more than a few days, talk to your flight surgeon.',
+  },
+};
+
+function plainSummary(alert: HealthAlert): string {
+  const preset = PLAIN_GUIDANCE[alert.parameterId];
+  if (preset) return preset.summary;
+  const direction = alert.value < alert.greenMin ? 'below' : 'above';
+  return `Your ${alert.name.toLowerCase()} is ${direction} the healthy range.`;
+}
+
+function plainAction(alert: HealthAlert): string {
+  return PLAIN_GUIDANCE[alert.parameterId]?.action ?? alert.countermeasures;
+}
+
 const AlertCard: React.FC<{ alert: HealthAlert }> = ({ alert }) => {
   const isRed = alert.severity === 'red';
   const accent = isRed
@@ -27,29 +66,25 @@ const AlertCard: React.FC<{ alert: HealthAlert }> = ({ alert }) => {
         badge: 'bg-[#B91C1C] text-white',
         title: 'text-[#7F1D1D]',
         value: 'text-[#B91C1C]',
-        label: 'text-[#991B1B]',
       }
     : {
         wrap: 'bg-[#FEFCE8] border-[#FDE047]',
         badge: 'bg-[#CA8A04] text-white',
         title: 'text-[#713F12]',
         value: 'text-[#A16207]',
-        label: 'text-[#854D0E]',
       };
 
   return (
-    <article className={`rounded-xl border p-4 sm:p-5 space-y-4 ${accent.wrap}`}>
+    <article className={`rounded-xl border p-4 sm:p-5 space-y-3 ${accent.wrap}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${accent.badge}`}
             >
-              {isRed ? 'Limit exceeded' : 'Approaching limit'}
+              {isRed ? 'Needs attention' : 'Slightly off target'}
             </span>
-            <span className="text-[11px] font-mono text-[#4A685F]">
-              {alert.domainLabel} · {AGGREGATION_LABEL[alert.aggregation] ?? alert.aggregation}
-            </span>
+            <span className="text-[11px] text-[#4A685F]">{alert.domainLabel}</span>
           </div>
           <h3 className={`text-base font-bold ${accent.title}`}>{alert.name}</h3>
         </div>
@@ -58,45 +93,41 @@ const AlertCard: React.FC<{ alert: HealthAlert }> = ({ alert }) => {
             {alert.value}
             <span className="text-xs font-normal ml-1">{alert.unit}</span>
           </div>
-          <div className="text-[11px] text-[#4A685F] font-mono">
-            green {alert.greenMin}–{alert.greenMax}
+          <div className="text-[11px] text-[#4A685F]">
+            healthy {alert.greenMin}–{alert.greenMax}
           </div>
         </div>
       </div>
 
-      <div className="text-xs text-[#3B5950]">
-        <span className="font-semibold">Target: </span>
-        {alert.targetText}
+      <p className={`text-sm font-semibold ${accent.title}`}>{plainSummary(alert)}</p>
+
+      <div className="rounded-lg bg-white/80 border border-white p-3">
+        <div className="text-[10px] font-bold uppercase tracking-wide text-[#15803D]">
+          What to do now
+        </div>
+        <p className="text-sm text-[#2D473E] mt-1 leading-relaxed">{plainAction(alert)}</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg bg-white/70 border border-white p-3">
-          <div className={`text-[10px] font-bold uppercase tracking-wide ${accent.label}`}>
-            If it persists
+      <details className="group text-xs text-[#3B5950]">
+        <summary className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-[#4A685F] hover:text-[#0F2922]">
+          <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+          Why this matters
+        </summary>
+        <div className="mt-2 space-y-2 rounded-lg bg-white/60 border border-white p-3 leading-relaxed">
+          <p>{alert.consequence}</p>
+          <p className="text-[#4A685F]">{alert.operationalImpact}</p>
+          <div className="text-[10px] text-[#4A685F] border-t border-black/5 pt-2 space-y-0.5">
+            <div>
+              Target: {alert.targetText} · {AGGREGATION_LABEL[alert.aggregation] ?? alert.aggregation}
+            </div>
+            {alert.bandLabel && <div>{alert.bandLabel}</div>}
+            <div>
+              Source: {alert.monitoringSource} · {alert.cadence} · {alert.sampleSize} sample
+              {alert.sampleSize === 1 ? '' : 's'}
+            </div>
           </div>
-          <p className="text-xs text-[#3B5950] mt-1 leading-relaxed">{alert.consequence}</p>
         </div>
-        <div className="rounded-lg bg-white/70 border border-white p-3">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-[#4A685F]">
-            Mission impact
-          </div>
-          <p className="text-xs text-[#3B5950] mt-1 leading-relaxed">{alert.operationalImpact}</p>
-        </div>
-        <div className="rounded-lg bg-white/70 border border-white p-3">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-[#15803D]">
-            Countermeasure
-          </div>
-          <p className="text-xs text-[#3B5950] mt-1 leading-relaxed">{alert.countermeasures}</p>
-        </div>
-      </div>
-
-      <div className="text-[10px] text-[#4A685F] leading-relaxed border-t border-black/5 pt-2 space-y-0.5">
-        {alert.bandLabel && <div>{alert.bandLabel}</div>}
-        <div>
-          Source: {alert.monitoringSource} · {alert.cadence} · {alert.sampleSize} sample
-          {alert.sampleSize === 1 ? '' : 's'} used
-        </div>
-      </div>
+      </details>
     </article>
   );
 };
@@ -105,6 +136,7 @@ export const HealthAlerts: React.FC<HealthAlertsProps> = ({ crewState }) => {
   const [report, setReport] = useState<WarningReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const readingCount = crewState.watchReadings.length;
   const historyCount = crewState.history.length;
@@ -134,7 +166,7 @@ export const HealthAlerts: React.FC<HealthAlertsProps> = ({ crewState }) => {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [crewState.crewId, readingCount, historyCount]);
+  }, [crewState.crewId, readingCount, historyCount, retryKey]);
 
   const alerts = report?.alerts ?? [];
   const redCount = alerts.filter((a) => a.severity === 'red').length;
@@ -145,10 +177,12 @@ export const HealthAlerts: React.FC<HealthAlertsProps> = ({ crewState }) => {
         <div className="flex items-start gap-3">
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-              alerts.length ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#F0FDF4] text-[#15803D]'
+              alerts.length || error
+                ? 'bg-[#FEF2F2] text-[#B91C1C]'
+                : 'bg-[#F0FDF4] text-[#15803D]'
             }`}
           >
-            {alerts.length ? (
+            {alerts.length || error ? (
               <TriangleAlert className="w-5 h-5" />
             ) : (
               <ShieldCheck className="w-5 h-5" />
@@ -157,16 +191,23 @@ export const HealthAlerts: React.FC<HealthAlertsProps> = ({ crewState }) => {
           <div>
             <h2 className="text-lg font-bold text-[#0F2922]">Health limit warnings</h2>
             <p className="text-xs text-[#4A685F] mt-0.5">
-              Live checks against the 41-parameter NASA guideline baseline. Sleep, stress,
-              exercise and mood are monitored automatically.
+              Simple checks based on your sleep, stress, activity and mood.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {alerts.length > 0 ? (
+          {loading && !report ? (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#F6FAF8] text-[#4A685F] border border-[#D5E3DD]">
+              Checking…
+            </span>
+          ) : error ? (
             <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]">
-              {alerts.length} warning{alerts.length === 1 ? '' : 's'}
-              {redCount > 0 ? ` · ${redCount} red` : ''}
+              Check unavailable
+            </span>
+          ) : alerts.length > 0 ? (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]">
+              {alerts.length} thing{alerts.length === 1 ? '' : 's'} to improve
+              {redCount > 0 ? ` · ${redCount} urgent` : ''}
             </span>
           ) : (
             <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0]">
@@ -181,9 +222,19 @@ export const HealthAlerts: React.FC<HealthAlertsProps> = ({ crewState }) => {
       )}
 
       {error && (
-        <div className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B] flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" />
-          Could not load warnings: {error}
+        <div className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B] flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Health checks are unavailable right now.
+          </span>
+          <button
+            type="button"
+            onClick={() => setRetryKey((key) => key + 1)}
+            className="inline-flex items-center gap-1 font-semibold text-[#991B1B] hover:underline cursor-pointer shrink-0"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry
+          </button>
         </div>
       )}
 
@@ -191,14 +242,14 @@ export const HealthAlerts: React.FC<HealthAlertsProps> = ({ crewState }) => {
         <div className="p-4 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] space-y-2">
           <div className="flex items-center gap-2 text-sm font-semibold text-[#166534]">
             <HeartPulse className="w-4 h-4" />
-            All monitored values are inside their green bands.
+            Everything monitored is inside the healthy range.
           </div>
           {report && report.checked.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {report.checked.map((c) => (
                 <span
                   key={c.parameterId}
-                  className="px-2 py-1 rounded-md bg-white border border-[#BBF7D0] text-[11px] font-mono text-[#166534]"
+                  className="px-2 py-1 rounded-md bg-white border border-[#BBF7D0] text-[11px] text-[#166534]"
                 >
                   {c.name}: {c.value}
                   {c.unit ? ` ${c.unit}` : ''}
@@ -224,9 +275,8 @@ export const HealthAlerts: React.FC<HealthAlertsProps> = ({ crewState }) => {
       <div className="text-[10px] text-[#4A685F] flex items-start gap-1.5 border-t border-[#E4EDE9] pt-3">
         <Stethoscope className="w-3.5 h-3.5 shrink-0 mt-0.5" />
         <span>
-          Bands marked “app operational” or “app screening” are defaults, not NASA limits.
-          Parameters without a numeric limit stay reference-only and are tracked as trends with
-          the flight surgeon.
+          These are guidance ranges, not a medical diagnosis. Tell your flight surgeon if you feel
+          unwell or a warning does not improve.
         </span>
       </div>
     </section>

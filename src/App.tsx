@@ -23,8 +23,16 @@ import {
 } from './types.ts';
 import { applyDailyHabitReset, getSystemDateKey } from './utils/dailyReset.ts';
 import { api, getToken, setToken } from './lib/api.ts';
+import { MISSION_LANDSCAPES } from './data/missionLandscapes.ts';
 
 const STORAGE_CREW_ID_KEY = 'verdant_orbit_crew_id';
+
+const MISSION_BG_OVERLAY: Record<MissionId, string> = {
+  [MissionId.ISS]: 'linear-gradient(180deg, rgba(235,243,250,0.82) 0%, rgba(246,250,248,0.92) 100%)',
+  [MissionId.LUNAR]: 'linear-gradient(180deg, rgba(226,232,240,0.84) 0%, rgba(246,250,248,0.92) 100%)',
+  [MissionId.MARS]: 'linear-gradient(180deg, rgba(254,243,199,0.80) 0%, rgba(246,250,248,0.90) 100%)',
+  [MissionId.DEEP_SPACE]: 'linear-gradient(180deg, rgba(219,234,254,0.82) 0%, rgba(246,250,248,0.92) 100%)',
+};
 
 export default function App() {
   const [crewState, setCrewState] = useState<CrewState | null>(null);
@@ -271,11 +279,25 @@ export default function App() {
     setActiveTab('assistant');
   };
 
+  const missionTheme = crewState ? MISSION_LANDSCAPES[crewState.missionId] : null;
+  const missionBackground = missionTheme
+    ? {
+        backgroundImage: `${MISSION_BG_OVERLAY[crewState!.missionId]}, url("${missionTheme.backdropImage}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }
+    : undefined;
   return (
-    <div className="min-h-screen bg-[#F6FAF8] text-[#0F2922] flex flex-col">
+    <div
+      className="min-h-screen bg-[#F6FAF8] text-[#0F2922] flex flex-col transition-[background-image] duration-500"
+      style={missionBackground}
+    >
       <TopNav
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
+        missionId={crewState?.missionId}
+        onChangeMission={handleChangeMission}
       />
 
       <main className="flex-1">
