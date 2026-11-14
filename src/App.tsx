@@ -12,18 +12,21 @@ import { NasaResourcesModal } from './components/NasaResourcesModal.tsx';
 import { TasksPage } from './components/TasksPage.tsx';
 import { NavTabId, TopNav } from './components/TopNav.tsx';
 import { WatchPage } from './components/WatchPage.tsx';
+import { UrgentAlertModal } from './components/UrgentAlertModal.tsx';
 import {
   ChatMessage,
   CompletedLog,
   CrewAccountSummary,
   CrewState,
   HabitTask,
+  HealthAlert,
   MissionId,
   WatchReading,
 } from './types.ts';
 import { applyDailyHabitReset, getSystemDateKey } from './utils/dailyReset.ts';
 import { api, getToken, setToken } from './lib/api.ts';
 import { MISSION_LANDSCAPES } from './data/missionLandscapes.ts';
+import { evaluateHealthWarnings } from './lib/healthWarnings.ts';
 
 const STORAGE_CREW_ID_KEY = 'verdant_orbit_crew_id';
 
@@ -44,6 +47,7 @@ export default function App() {
     null
   );
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
+  const [urgentAlert, setUrgentAlert] = useState<HealthAlert | null>(null);
 
   useEffect(() => {
     const savedCrewId = window.localStorage.getItem(STORAGE_CREW_ID_KEY);
@@ -268,10 +272,14 @@ export default function App() {
     // Measurements go to their own table through a dedicated endpoint; the
     // generic state sync deliberately ignores the watchReadings array.
     void api.addWatchReading(reading).catch(() => {});
-    persistState({
+    const nextState = {
       ...crewState,
       watchReadings: [...crewState.watchReadings, reading],
-    });
+    };
+    const report = evaluateHealthWarnings(nextState.watchReadings, nextState.history);
+    const redAlert = report.alerts.find((alert) => alert.severity === 'red');
+    if (redAlert) setUrgentAlert(redAlert);
+    persistState(nextState);
   };
 
   const handleSendWatchAlertToAssistant = (prompt: string) => {
@@ -379,6 +387,16 @@ export default function App() {
         )}
       </main>
 
+      {urgentAlert && (
+        <UrgentAlertModal
+          alert={urgentAlert}
+          onClose={() => setUrgentAlert(null)}
+          onOpenAssistant={() => {
+            setUrgentAlert(null);
+            setActiveTab('assistant');
+          }}
+        />
+      )}
       <NasaResourcesModal
         open={nasaModalOpen}
         onClose={() => setNasaModalOpen(false)}

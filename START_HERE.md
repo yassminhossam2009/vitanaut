@@ -152,7 +152,7 @@ The full technical deployment notes, including Fly.io and Railway, are in [DEPLO
 | `start-windows.bat`, `start-mac.command`, `start-linux.sh` | Double-click starters. They install and run the app. |
 | `src/` | The screens you see: Home, Tasks, Assistant, Watch, History, Landscape. |
 | `server.ts`, `server/` | The backend: accounts, private data, wearable readings, warnings. |
-| `db/` | The 41-parameter guideline baseline and the database schema. |
+| `db/` | The 41 source parameters, the app screening heart-rate rule, and the database schema. |
 | `data/` | Created automatically on first run. Holds the database. Back this up. |
 | `Dockerfile`, `docker-compose.yml`, `render.yaml`, `fly.toml` | Hosting configurations. You do not need to edit them. |
 | `DEPLOY.md` | Technical deployment instructions for a developer or hosting provider. |

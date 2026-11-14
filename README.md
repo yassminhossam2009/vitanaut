@@ -35,14 +35,14 @@ Three separate areas, all scoped to the signed-in user:
 - **Accounts**: `users`, `sessions`, `profiles` — Crew ID, scrypt hash, mission profile
 - **Private history**: `habit_logs`, `habits`, `chat_messages` — every completion, mood shift and note
 - **Wearable measurements**: `watch_readings` — HR, HRV, SpO2, stress, sleep, bone load, active minutes
-- **Reference guidelines**: `ref_parameters` — the 41-parameter NASA habit-domain baseline, with targets, consequences and countermeasures
+- **Reference guidelines**: `ref_parameters` — the 41 NASA habit-domain parameters plus an app screening heart-rate parameter (42 total), with targets, consequences and countermeasures
 
 Full details, security notes and the API reference are in
 [docs/BACKEND.md](docs/BACKEND.md).
 
 ## Guideline baseline and warnings
 
-The CSV you supplied is now the baseline: all 41 parameters are loaded into
+The CSV you supplied is the baseline: all 41 source parameters are loaded, plus one app screening heart-rate parameter, into
 `ref_parameters` with their target, monitoring source, consequences and
 countermeasures. Four parameters have live
 numeric bands and are checked automatically: sleep duration, stress, 7-day

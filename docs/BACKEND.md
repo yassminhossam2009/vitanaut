@@ -28,7 +28,7 @@ minutes, source and device ID. Readings are append-only and idempotent by
 
 **Reference guidelines** are the `ref_parameters` table. It is loaded from
 `db/reference_parameters.json`, generated from
-`db/source/habit_domain_parameters.csv`: 41 parameters with target text,
+`db/source/habit_domain_parameters.csv`: 41 source parameters with target text,
 monitoring source, cadence, related risks, consequences, operational impact,
 countermeasures and notes. Four of them carry numeric bands and a live metric
 (`sleep_hours`, `stress_index`, `active_minutes`, `mood`); the rest are
@@ -83,7 +83,7 @@ History:
 - `GET /api/history?limit=&offset=&from=&to=&category=` — paginated private history with a total count
 
 Guidelines and warnings (reference data and warnings; no separate UI page):
-- `GET /api/parameters` — the 41-parameter reference catalog
+- `GET /api/parameters` — the 42-parameter reference catalog
 - `POST /api/parameters/import` — `{parameters:[...]}` upserts by `parameterId`
 - `GET /api/warnings` — evaluated alerts for the signed-in user, with checked values
 

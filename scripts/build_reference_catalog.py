@@ -127,6 +127,31 @@ def main(path: str) -> None:
             }
         )
 
+    out.append(
+        {
+            "parameterId": "heart_rate",
+            "domain": "cardiovascular",
+            "domainLabel": "Cardiovascular",
+            "name": "Resting heart rate",
+            "whatToTrack": "Resting heart rate from the wearable",
+            "targetText": "50–100 bpm at rest (app screening range)",
+            "thresholdBasis": "App screening default; the NASA guideline file sets no numeric heart-rate limit.",
+            "monitoringSource": "Wearable optical heart-rate sensor",
+            "cadence": "Latest reading",
+            "relatedRisks": "Risk of cardiovascular deconditioning and orthostatic intolerance",
+            "countermeasures": "Sit down and stop activity. Breathe slowly for 2–3 minutes, drink water, and recheck your heart rate. If it stays above 120 bpm, or you feel chest pain, dizziness or shortness of breath, contact the flight surgeon now.",
+            "consequence": "A high resting heart rate can reflect strain, dehydration, fever, stress or a heart rhythm problem.",
+            "operationalImpact": "Reduced exercise tolerance and higher risk during EVA or emergency egress.",
+            "notes": "",
+            "dateRetrieved": "2026-11-14",
+            "status": "monitored",
+            "metricKey": "heart_rate",
+            "aggregation": "latest",
+            "bandLabel": "App screening range for resting heart rate. NASA sets no numeric heart-rate limit; 50–100 bpm is the healthy band, 40–50 and 100–120 are caution zones, and outside 40–120 is urgent.",
+            "unit": "bpm",
+            "bands": {"greenMin": 50, "greenMax": 100, "yellowMin": 40, "yellowMax": 120, "redBelow": 40, "redAbove": 120},
+        }
+    )
     target = Path("db/reference_parameters.json")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps({"version": 1, "source": src.name, "parameters": out}, indent=2) + "\n")
