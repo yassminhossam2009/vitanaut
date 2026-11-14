@@ -1,4 +1,4 @@
-import catalog from '../../db/reference_parameters.json';
+import catalog from '../../db/reference_parameters.json' with { type: 'json' };
 import { CompletedLog, HealthAlert, WarningReport, WatchReading } from '../types.ts';
 
 export interface WarningBands {
