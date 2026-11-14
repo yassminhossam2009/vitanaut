@@ -43,6 +43,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   const [missionOpen, setMissionOpen] = useState(false);
   const missionRef = useRef<HTMLDivElement>(null);
   const mission = missionId ? MISSION_LANDSCAPES[missionId] : null;
+  const dark = Boolean(mission);
 
   useEffect(() => {
     if (!missionOpen) return;
@@ -54,12 +55,18 @@ export const TopNav: React.FC<TopNavProps> = ({
   }, [missionOpen]);
 
   return (
-    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#D5E3DD]">
+    <header
+      className={`sticky top-0 z-30 backdrop-blur-md border-b ${
+        dark ? 'bg-[#06141b]/80 border-white/10' : 'bg-white/90 border-[#D5E3DD]'
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 sm:gap-6">
         <button
           type="button"
           onClick={() => onSelectTab('home')}
-          className="text-lg font-bold tracking-tight text-[#0F2922] whitespace-nowrap shrink-0 cursor-pointer"
+          className={`text-lg font-bold tracking-tight whitespace-nowrap shrink-0 cursor-pointer ${
+            dark ? 'text-white' : 'text-[#0F2922]'
+          }`}
         >
           Vitanaut
         </button>
@@ -72,13 +79,21 @@ export const TopNav: React.FC<TopNavProps> = ({
                 onClick={() => setMissionOpen((open) => !open)}
                 aria-expanded={missionOpen}
                 aria-label={`Change mission location. Current location: ${mission.name}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold bg-[#EFF6F2] text-[#2D473E] border border-[#C9DBD4] hover:border-[#0369A1]/60 cursor-pointer select-none"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold border cursor-pointer select-none ${
+                  dark
+                    ? 'bg-white/10 text-white border-white/15 hover:border-[#7DD3FC]/70'
+                    : 'bg-[#EFF6F2] text-[#2D473E] border-[#C9DBD4] hover:border-[#0369A1]/60'
+                }`}
               >
-                <MapPin className="w-3.5 h-3.5 text-[#0369A1]" />
-                <span className="hidden sm:inline text-[#4A685F]">Location</span>
+                <MapPin className={`w-3.5 h-3.5 ${dark ? 'text-[#7DD3FC]' : 'text-[#0369A1]'}`} />
+                <span className={`hidden sm:inline ${dark ? 'text-white/60' : 'text-[#4A685F]'}`}>
+                  Location
+                </span>
                 <span className="whitespace-nowrap">{mission.shortName}</span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-[#4A685F] transition-transform ${
+                  className={`w-3.5 h-3.5 transition-transform ${
+                    dark ? 'text-white/60' : 'text-[#4A685F]'
+                  } ${
                     missionOpen ? 'rotate-180' : ''
                   }`}
                 />
@@ -134,7 +149,9 @@ export const TopNav: React.FC<TopNavProps> = ({
                   className={`px-3 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer border ${
                     isActive
                       ? 'bg-[#0369A1] text-white border-[#0369A1]'
-                      : 'bg-[#F6FAF8] text-[#2D473E] border-[#D5E3DD] hover:bg-[#EFF6F2] hover:border-[#0369A1]/50'
+                      : dark
+                        ? 'bg-white/5 text-white/75 border-white/10 hover:bg-white/10 hover:text-white'
+                        : 'bg-[#F6FAF8] text-[#2D473E] border-[#D5E3DD] hover:bg-[#EFF6F2] hover:border-[#0369A1]/50'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
