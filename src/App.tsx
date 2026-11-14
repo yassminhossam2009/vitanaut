@@ -26,26 +26,39 @@ import {
 import { applyDailyHabitReset, getSystemDateKey } from './utils/dailyReset.ts';
 import { api, getToken, setToken } from './lib/api.ts';
 import { MISSION_LANDSCAPES } from './data/missionLandscapes.ts';
+import issAppBackground from './assets/backgrounds/iss_orbit.jpg';
+import lunarAppBackground from './assets/backgrounds/lunar_base.jpg';
+import marsAppBackground from './assets/backgrounds/mars_outpost.jpg';
+import deepSpaceAppBackground from './assets/backgrounds/deep_space.jpg';
 import { evaluateHealthWarnings } from './lib/healthWarnings.ts';
 
 const STORAGE_CREW_ID_KEY = 'verdant_orbit_crew_id';
 
+const MISSION_APP_BACKGROUND: Record<MissionId, string> = {
+  [MissionId.ISS]: issAppBackground,
+  [MissionId.LUNAR]: lunarAppBackground,
+  [MissionId.MARS]: marsAppBackground,
+  [MissionId.DEEP_SPACE]: deepSpaceAppBackground,
+};
+
+// Soft location-tinted veils keep the photography visible while lowering its
+// contrast behind white cards and dark navigation.
 const MISSION_BG_OVERLAY: Record<MissionId, string> = {
   [MissionId.ISS]:
-    'linear-gradient(180deg, rgba(2,14,27,0.88) 0%, rgba(4,30,46,0.90) 50%, rgba(5,44,53,0.86) 100%)',
+    'linear-gradient(180deg, rgba(4,20,34,0.64) 0%, rgba(8,36,51,0.72) 55%, rgba(12,52,62,0.70) 100%)',
   [MissionId.LUNAR]:
-    'linear-gradient(180deg, rgba(9,12,18,0.90) 0%, rgba(25,32,42,0.91) 55%, rgba(49,51,55,0.86) 100%)',
+    'linear-gradient(180deg, rgba(20,25,32,0.60) 0%, rgba(40,46,53,0.70) 55%, rgba(55,59,64,0.68) 100%)',
   [MissionId.MARS]:
-    'linear-gradient(180deg, rgba(25,9,5,0.90) 0%, rgba(55,21,10,0.91) 55%, rgba(82,34,15,0.86) 100%)',
+    'linear-gradient(180deg, rgba(43,19,13,0.58) 0%, rgba(73,37,25,0.67) 55%, rgba(91,52,36,0.66) 100%)',
   [MissionId.DEEP_SPACE]:
-    'linear-gradient(180deg, rgba(1,5,18,0.94) 0%, rgba(5,11,32,0.94) 55%, rgba(14,11,42,0.90) 100%)',
+    'linear-gradient(180deg, rgba(6,9,22,0.56) 0%, rgba(16,14,36,0.66) 55%, rgba(25,18,47,0.66) 100%)',
 };
 
 const MISSION_BG_BASE: Record<MissionId, string> = {
-  [MissionId.ISS]: '#03121f',
-  [MissionId.LUNAR]: '#11151c',
-  [MissionId.MARS]: '#1b0b06',
-  [MissionId.DEEP_SPACE]: '#020617',
+  [MissionId.ISS]: '#061c2a',
+  [MissionId.LUNAR]: '#252a31',
+  [MissionId.MARS]: '#422319',
+  [MissionId.DEEP_SPACE]: '#0b0a1d',
 };
 
 export default function App() {
@@ -301,7 +314,7 @@ export default function App() {
   const missionTheme = crewState ? MISSION_LANDSCAPES[crewState.missionId] : null;
   const missionBackground = missionTheme
     ? {
-        backgroundImage: `${MISSION_BG_OVERLAY[crewState!.missionId]}, url("${missionTheme.backdropImage}")`,
+        backgroundImage: `${MISSION_BG_OVERLAY[crewState!.missionId]}, url("${MISSION_APP_BACKGROUND[crewState!.missionId]}")`,
         backgroundColor: MISSION_BG_BASE[crewState!.missionId],
         backgroundSize: 'cover',
         backgroundPosition: 'center',
