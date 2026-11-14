@@ -337,7 +337,11 @@ export default function App() {
         )}
 
         {bootstrapping ? (
-          <div className="py-24 text-center text-sm text-[#3B5950]">
+          <div
+            className={`py-24 text-center text-sm ${
+              missionTheme ? 'text-white/70' : 'text-[#3B5950]'
+            }`}
+          >
             Loading Vitanaut habitat telemetry...
           </div>
         ) : (
